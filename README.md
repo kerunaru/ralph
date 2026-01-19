@@ -14,17 +14,16 @@ project-root/
 │   ├── CLAUDE.md             # Developer guidance
 │   ├── README.md             # This file
 │   └── templates/            # Template files
-│       └── 000-sample.md     # Example PRD structure
+│       ├── 000-sample.md     # Example PRD structure
+│       └── PRD_PROMPT.md     # Template for PRD generation instructions
 └── ralph-reference/          # Project-specific requirements (NOT in submodule)
     ├── 20260114-kickoff/
     │   ├── idea.md           # Initial rough idea/concept
-    │   ├── PRD_PROMPT.md     # Prompt used to generate PRD.md
     │   ├── PRD.md            # Product Requirements Document
     │   ├── progress.md       # Progress log with learnings (auto-generated)
     │   ├── .run-id           # Current run identifier (auto-generated)
     │   └── archive/          # Completed/incomplete run archives
     └── 20260116-feat-palette-selector-to-footer/
-        ├── PRD_PROMPT.md
         └── PRD.md
 ```
 
@@ -113,19 +112,9 @@ If you prefer manual setup instead of the wizard:
    echo "# Feature Name\n\nBrief description of what you want to build..." > ralph-reference/YYYYMMDD-HHMM-feature-name/idea.md
    ```
 
-3. Create a `PRD_PROMPT.md` with instructions for generating the PRD:
-   ```bash
-   cat > ralph-reference/YYYYMMDD-HHMM-feature-name/PRD_PROMPT.md << 'EOF'
-   Write a PRD document called `PRD.md` in this directory based on `idea.md`.
+3. Generate the `PRD.md` using Claude or write it manually (Claude will use `ralph/templates/PRD_PROMPT.md` as instructions)
 
-   Think about how to implement the feature step-by-step. Break it down into smaller tasks.
-   Follow the `ralph/templates/000-sample.md` as structure reference.
-   EOF
-   ```
-
-4. Generate the `PRD.md` using Claude or write it manually
-
-5. Run Ralph for this requirement:
+4. Run Ralph for this requirement:
    ```bash
    ./ralph/ralph.sh YYYYMMDD-HHMM-feature-name
    ```
@@ -141,7 +130,7 @@ Ralph will automatically:
 Main script that:
 - Provides interactive wizard mode for creating new requirements
 - Guides user through requirement name and idea input
-- Auto-generates folder structure, idea.md, PRD_PROMPT.md, and PRD.md
+- Auto-generates folder structure, idea.md, and PRD.md (using ralph/templates/PRD_PROMPT.md)
 - Validates requirement folder exists
 - Prepares the prompt with requirement-specific paths
 - Runs Claude iteratively until completion (with optional confirmation prompts)
@@ -159,17 +148,17 @@ Shared prompt template used for all requirements. Contains:
 - Uses `{{PRD_PATH}}` and `{{PROGRESS_PATH}}` placeholders
 
 ### idea.md (per requirement, optional)
-Initial rough concept or feature description. Used as input for creating the PRD_PROMPT.md.
+Initial rough concept or feature description. Used as input for generating PRD.md.
 
-### PRD_PROMPT.md (per requirement)
-The prompt that was used to generate the PRD.md. Documents:
-- Instructions for creating the PRD
-- References to idea.md and sample structure
+### PRD_PROMPT.md (in ralph/templates/)
+Template containing standard instructions for generating PRD.md files. Documents:
+- Instructions for creating PRD from idea.md
+- References to sample structure (000-sample.md)
 - What to include in the PRD
-- Maintains a record of how the PRD was created
+- Shared across all requirements for consistency
 
 ### PRD.md (per requirement, required)
-Product Requirements Document generated from PRD_PROMPT.md. Contains:
+Product Requirements Document generated using ralph/templates/PRD_PROMPT.md. Contains:
 - Progress summary with checkboxes
 - Overview and goals
 - Implementation steps
@@ -199,16 +188,15 @@ Using the wizard (recommended):
 2. **Select**: Choose "Create new requirement"
 3. **Name**: Enter descriptive requirement name (auto-prefixed with date and time)
 4. **Ideation**: Enter your idea/description (multi-line, Ctrl+D to finish)
-5. **Auto-Generate**: Wizard creates folder structure, idea.md, PRD_PROMPT.md, and generates PRD.md with Claude
+5. **Auto-Generate**: Wizard creates folder structure, idea.md, and generates PRD.md with Claude (using ralph/templates/PRD_PROMPT.md)
 6. **Review**: Review the generated PRD.md (optional: edit before running)
 7. **Run**: Choose to run immediately or later
 
 Or manually:
 
 1. **Ideation**: Create `idea.md` with rough concept
-2. **PRD Prompt**: Create `PRD_PROMPT.md` with instructions for generating the PRD
-3. **PRD Generation**: Use Claude to generate `PRD.md` from `PRD_PROMPT.md` and `idea.md`
-4. **Review**: Review and refine the PRD before implementation
+2. **PRD Generation**: Use Claude to generate `PRD.md` from `ralph/templates/PRD_PROMPT.md` and `idea.md`
+3. **Review**: Review and refine the PRD before implementation
 
 ### Phase 2: Implementation (Automated via Ralph)
 
@@ -224,7 +212,7 @@ Ralph works in **one-task-per-iteration** cycles:
 8. **Display**: Shows Claude's output in real-time for transparency
 9. **Confirm**: (Interactive mode) Prompts user before next iteration
 10. **Iterate**: Repeats until ALL tasks are complete
-11. **Archive**: Saves PRD, PRD_PROMPT, and progress to timestamped archive folder
+11. **Archive**: Saves PRD and progress to timestamped archive folder
 
 **Why one task per iteration?**
 - Enables granular progress tracking
@@ -232,8 +220,6 @@ Ralph works in **one-task-per-iteration** cycles:
 - Creates focused, meaningful git commits
 - Makes it easy to stop and resume work
 - Provides clear visibility into what's being done
-
-The key insight: `PRD_PROMPT.md` documents **how** the PRD was created, maintaining a record of the original intent and generation process.
 
 ## Stop Condition
 

@@ -36,11 +36,11 @@ project-root/
 │   ├── CLAUDE.md             # This file
 │   ├── README.md             # Documentation
 │   └── templates/            # Template files
-│       └── 000-sample.md     # PRD structure reference
+│       ├── 000-sample.md     # PRD structure reference
+│       └── PRD_PROMPT.md     # Template for PRD generation instructions
 └── ralph-reference/          # Project-specific requirements (NOT in submodule)
     └── YYYYMMDD-HHMM-feature-name/
         ├── idea.md           # Initial concept (optional)
-        ├── PRD_PROMPT.md     # Instructions for generating PRD
         ├── PRD.md            # Product Requirements Document
         ├── progress.md       # Progress log (auto-generated)
         ├── .run-id           # Current run identifier (auto-generated)
@@ -62,7 +62,7 @@ project-root/
 
 **PRD.md**: Task checklist with [ ] checkboxes. Agent marks tasks [x] as completed.
 
-**PRD_PROMPT.md**: Documents how the PRD.md was generated (maintains record of original intent).
+**PRD_PROMPT.md** (in templates/): Standard instructions for generating PRD.md files from idea.md.
 
 **progress.md**: Progress log with:
 - Run ID and timestamp at top
@@ -71,7 +71,7 @@ project-root/
 
 ### Workflow Phases
 
-**Phase 1 - Planning**: Create requirement folder, write idea.md, generate PRD.md from PRD_PROMPT.md
+**Phase 1 - Planning**: Create requirement folder, write idea.md, generate PRD.md using ralph/templates/PRD_PROMPT.md
 
 **Phase 2 - Implementation**: Ralph runs Claude iteratively:
 1. Read PRD and progress
@@ -117,8 +117,8 @@ project-root/
 The wizard (`./ralph/ralph.sh` with no arguments) automates:
 1. Requirement name input (auto-prefixed with date/time)
 2. Multi-line idea description (Ctrl+D to finish)
-3. Auto-generation of folder structure, idea.md, PRD_PROMPT.md
-4. Claude-generated PRD.md
+3. Auto-generation of folder structure and idea.md
+4. Claude-generated PRD.md (using ralph/templates/PRD_PROMPT.md)
 5. Option to run immediately or later
 
 ### Naming Convention

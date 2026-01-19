@@ -161,30 +161,12 @@ create_new_requirement() {
   echo "$IDEA_CONTENT" > "$REQ_DIR/idea.md"
   print_success "Created idea.md"
 
-  # Create PRD_PROMPT.md
-  cat > "$REQ_DIR/PRD_PROMPT.md" << 'EOF'
-Write a PRD document called `PRD.md` in this directory based on `idea.md`.
-
-Think about how to implement the feature step-by-step. Break it down into smaller, granular tasks as you need. Follow the `ralph/templates/000-sample.md` as structure guide.
-
-IMPORTANT:
-- Set Status to "Not Started"
-- All checkboxes must be unchecked: [ ] not [x]
-- This is a planning document for future implementation, not a completed task list
-- Break down the implementation into SMALL, ATOMIC tasks
-- Each task should be completable in one focused session
-- Aim for 5-10 steps minimum - avoid combining multiple changes into one step
-- Each step should have a clear, testable outcome
-
-EOF
-  print_success "Created PRD_PROMPT.md"
-
   # Generate PRD.md using Claude
   echo ""
   print_step "Generating PRD.md with Claude..."
   cd "$REQ_DIR"
 
-  GENERATE_PROMPT="Read idea.md and PRD_PROMPT.md in the current directory, then generate PRD.md following the instructions in PRD_PROMPT.md. Use ralph/templates/000-sample.md as a structure reference."
+  GENERATE_PROMPT="Read idea.md in the current directory and ralph/templates/PRD_PROMPT.md, then generate PRD.md following the instructions in ralph/templates/PRD_PROMPT.md. Use ralph/templates/000-sample.md as a structure reference."
 
   echo "$GENERATE_PROMPT" | claude --dangerously-skip-permissions > /dev/null
 
@@ -299,7 +281,6 @@ fi
 
 # Set paths for this requirement
 PRD_FILE="$REQ_DIR/PRD.md"
-PRD_PROMPT_FILE="$REQ_DIR/PRD_PROMPT.md"
 PROMPT_FILE="$SCRIPT_DIR/PROMPT.md"
 PROGRESS_FILE="$REQ_DIR/progress.md"
 ARCHIVE_DIR="$REQ_DIR/archive"
@@ -390,7 +371,6 @@ while true; do
     mkdir -p "$ARCHIVE_FOLDER"
 
     [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
-    [ -f "$PRD_PROMPT_FILE" ] && cp "$PRD_PROMPT_FILE" "$ARCHIVE_FOLDER/"
     [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
     [ -f "$PROMPT_FILE" ] && cp "$PROMPT_FILE" "$ARCHIVE_FOLDER/"
 
@@ -424,7 +404,6 @@ while true; do
         mkdir -p "$ARCHIVE_FOLDER"
 
         [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
-        [ -f "$PRD_PROMPT_FILE" ] && cp "$PRD_PROMPT_FILE" "$ARCHIVE_FOLDER/"
         [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
         [ -f "$PROMPT_FILE" ] && cp "$PROMPT_FILE" "$ARCHIVE_FOLDER/"
 
