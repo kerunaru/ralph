@@ -203,16 +203,24 @@ if [ $# -eq 0 ]; then
     done <<< "$WIZARD_REQS"
   fi
 
-  echo -e "${BOLD}Available Requirements:${RESET} ${DIM}($WIZARD_COMPLETED_COUNT of $WIZARD_TOTAL_COUNT completed)${RESET}"
-  list_requirements
-  echo ""
+  # If no requirements exist, automatically create the first one
+  if [ "$WIZARD_TOTAL_COUNT" -eq 0 ]; then
+    echo -e "${BOLD}No requirements found!${RESET}"
+    echo -e "${DIM}Let's create your first requirement...${RESET}"
+    echo ""
+    OPTION="1"
+  else
+    echo -e "${BOLD}Available Requirements:${RESET} ${DIM}($WIZARD_COMPLETED_COUNT of $WIZARD_TOTAL_COUNT completed)${RESET}"
+    list_requirements
+    echo ""
 
-  echo -e "${BOLD}What would you like to do?${RESET}"
-  echo -e "  ${CYAN}1${RESET}) ${BOLD}Create new requirement${RESET}"
-  echo -e "  ${CYAN}2${RESET}) ${BOLD}Run existing requirement${RESET}"
-  echo -e "  ${CYAN}q${RESET}) ${DIM}Quit${RESET}"
-  echo ""
-  read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Select option: " OPTION
+    echo -e "${BOLD}What would you like to do?${RESET}"
+    echo -e "  ${CYAN}1${RESET}) ${BOLD}Create new requirement${RESET}"
+    echo -e "  ${CYAN}2${RESET}) ${BOLD}Run existing requirement${RESET}"
+    echo -e "  ${CYAN}q${RESET}) ${DIM}Quit${RESET}"
+    echo ""
+    read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Select option: " OPTION
+  fi
 
   case "$OPTION" in
     1)
