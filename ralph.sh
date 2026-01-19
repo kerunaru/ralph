@@ -1,0 +1,449 @@
+#!/bin/bash
+# Ralph Wiggum - Long-running AI agent loop
+# Usage: ./ralph/ralph.sh [requirement-folder] [-y|--yes]
+# Example: ./ralph/ralph.sh 20260116-feat-palette-selector-to-footer
+# Example: ./ralph/ralph.sh 20260116-feat-palette-selector-to-footer --yes
+# Or run without arguments to use wizard mode
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Parse command-line flags
+AUTO_CONTINUE=false
+REQUIREMENT_FOLDER=""
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes)
+      AUTO_CONTINUE=true
+      ;;
+    *)
+      if [ -z "$REQUIREMENT_FOLDER" ]; then
+        REQUIREMENT_FOLDER="$arg"
+      fi
+      ;;
+  esac
+done
+
+# Color codes for fancy output
+RESET='\033[0m'
+BOLD='\033[1m'
+DIM='\033[2m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[0;37m'
+GRAY='\033[0;90m'
+
+# Symbols
+CHECK="✓"
+CROSS="✗"
+ARROW="→"
+STAR="★"
+DOT="•"
+
+# Function to print a header box
+print_header() {
+  local title="$1"
+  echo -e "\n${CYAN}══════════════════════════════════════════════════════════════${RESET}"
+  echo -e "${CYAN} ${RESET}  ${BOLD}${MAGENTA}$title${RESET}"
+  echo -e "${CYAN}══════════════════════════════════════════════════════════════${RESET}\n"
+}
+
+# Function to print info message
+print_info() {
+  echo -e "${BLUE}${DOT}${RESET} $1"
+}
+
+# Function to print success message
+print_success() {
+  echo -e "${GREEN}${CHECK}${RESET} ${GREEN}$1${RESET}"
+}
+
+# Function to print error message
+print_error() {
+  echo -e "${RED}${CROSS}${RESET} ${RED}$1${RESET}"
+}
+
+# Function to print warning message
+print_warning() {
+  echo -e "${YELLOW}${ARROW}${RESET} ${YELLOW}$1${RESET}"
+}
+
+# Function to print step
+print_step() {
+  echo -e "${CYAN}${ARROW}${RESET} ${BOLD}$1${RESET}"
+}
+
+# Function to check if requirement is completed
+is_requirement_completed() {
+  local req_folder="$1"
+  local archive_dir="$SCRIPT_DIR/reference/$req_folder/archive"
+
+  # Check if there's a completed archive
+  if [ -d "$archive_dir" ]; then
+    local completed_count=$(ls -1 "$archive_dir" 2>/dev/null | grep -c "^completed-" || echo "0")
+    [ "$completed_count" -gt 0 ] && return 0
+  fi
+  return 1
+}
+
+# Function to list available requirements
+list_requirements() {
+  local reqs=$(ls -1 "$SCRIPT_DIR/reference" 2>/dev/null | grep -v "\.md$")
+  if [ -z "$reqs" ]; then
+    echo -e "  ${DIM}(none found)${RESET}"
+  else
+    echo "$reqs" | while read req; do
+      if is_requirement_completed "$req"; then
+        echo -e "  ${GREEN}${CHECK}${RESET} ${BOLD}$req${RESET} ${DIM}(completed)${RESET}"
+      else
+        echo -e "  ${CYAN}${DOT}${RESET} ${BOLD}$req${RESET}"
+      fi
+    done
+  fi
+}
+
+# Function to create new requirement
+create_new_requirement() {
+  print_header "Create New Requirement"
+
+  # Get requirement name
+  echo -e "${BOLD}Requirement Name${RESET}"
+  echo -e "${DIM}Example: feat-dark-mode-toggle, fix-mobile-layout${RESET}"
+  read -p "$(echo -e ${CYAN}${ARROW}${RESET}) " REQ_NAME
+  if [ -z "$REQ_NAME" ]; then
+    print_error "Requirement name cannot be empty"
+    exit 1
+  fi
+
+  # Generate folder name with date and time prefix
+  DATE_PREFIX=$(date +%Y%m%d-%H%M)
+  REQUIREMENT_FOLDER="$DATE_PREFIX-$REQ_NAME"
+  REQ_DIR="$SCRIPT_DIR/reference/$REQUIREMENT_FOLDER"
+
+  # Check if folder already exists
+  if [ -d "$REQ_DIR" ]; then
+    print_error "Requirement folder already exists: $REQUIREMENT_FOLDER"
+    exit 1
+  fi
+
+  echo ""
+  print_info "Creating ${BOLD}$REQUIREMENT_FOLDER${RESET}"
+  echo ""
+
+  # Get idea content (multi-line)
+  echo -e "${BOLD}Idea / Requirement Description${RESET}"
+  echo -e "${DIM}Enter your description below (press Ctrl+D when finished)${RESET}"
+  echo -e "${GRAY}────────────────────────────────────────────────────────────${RESET}"
+  IDEA_CONTENT=$(cat)
+
+  if [ -z "$IDEA_CONTENT" ]; then
+    echo ""
+    print_error "Idea content cannot be empty"
+    exit 1
+  fi
+
+  echo -e "${GRAY}────────────────────────────────────────────────────────────${RESET}"
+  echo ""
+
+  # Create requirement folder
+  mkdir -p "$REQ_DIR"
+  print_step "Setting up requirement structure..."
+
+  # Create idea.md
+  echo "$IDEA_CONTENT" > "$REQ_DIR/idea.md"
+  print_success "Created idea.md"
+
+  # Create PRD_PROMPT.md
+  cat > "$REQ_DIR/PRD_PROMPT.md" << 'EOF'
+Write a PRD document called `PRD.md` in this directory based on `idea.md`.
+
+Think about how to implement the feature step-by-step. Break it down into smaller, granular tasks as you need. Follow the `../000-sample.md` as structure guide.
+
+IMPORTANT:
+- Set Status to "Not Started"
+- All checkboxes must be unchecked: [ ] not [x]
+- This is a planning document for future implementation, not a completed task list
+- Break down the implementation into SMALL, ATOMIC tasks
+- Each task should be completable in one focused session
+- Aim for 5-10 steps minimum - avoid combining multiple changes into one step
+- Each step should have a clear, testable outcome
+
+EOF
+  print_success "Created PRD_PROMPT.md"
+
+  # Generate PRD.md using Claude
+  echo ""
+  print_step "Generating PRD.md with Claude..."
+  cd "$REQ_DIR"
+
+  GENERATE_PROMPT="Read idea.md and PRD_PROMPT.md in the current directory, then generate PRD.md following the instructions in PRD_PROMPT.md. Use ../000-sample.md as a structure reference."
+
+  echo "$GENERATE_PROMPT" | claude --dangerously-skip-permissions > /dev/null
+
+  if [ ! -f "$REQ_DIR/PRD.md" ]; then
+    echo ""
+    print_error "Failed to generate PRD.md"
+    exit 1
+  fi
+
+  print_success "Generated PRD.md"
+  echo ""
+  echo -e "${GREEN}${STAR}${RESET} ${GREEN}${BOLD}Requirement created successfully!${RESET}"
+  echo -e "${DIM}   Folder: $REQUIREMENT_FOLDER${RESET}"
+  echo ""
+
+  # Return to project root
+  cd "$PROJECT_ROOT"
+}
+
+# Wizard mode - no arguments provided
+if [ $# -eq 0 ]; then
+  print_header "Ralph Wizard ${STAR}"
+
+  # Count requirements
+  WIZARD_REQS=$(ls -1 "$SCRIPT_DIR/reference" 2>/dev/null | grep -v "\.md$")
+  WIZARD_TOTAL_COUNT=$(echo "$WIZARD_REQS" | grep -c . || echo "0")
+  WIZARD_COMPLETED_COUNT=0
+
+  if [ -n "$WIZARD_REQS" ]; then
+    while read req; do
+      if is_requirement_completed "$req"; then
+        WIZARD_COMPLETED_COUNT=$((WIZARD_COMPLETED_COUNT + 1))
+      fi
+    done <<< "$WIZARD_REQS"
+  fi
+
+  echo -e "${BOLD}Available Requirements:${RESET} ${DIM}($WIZARD_COMPLETED_COUNT of $WIZARD_TOTAL_COUNT completed)${RESET}"
+  list_requirements
+  echo ""
+
+  echo -e "${BOLD}What would you like to do?${RESET}"
+  echo -e "  ${CYAN}1${RESET}) ${BOLD}Create new requirement${RESET}"
+  echo -e "  ${CYAN}2${RESET}) ${BOLD}Run existing requirement${RESET}"
+  echo -e "  ${CYAN}q${RESET}) ${DIM}Quit${RESET}"
+  echo ""
+  read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Select option: " OPTION
+
+  case "$OPTION" in
+    1)
+      create_new_requirement
+      # After creation, prompt to run it
+      echo ""
+      echo -e "${BOLD}Ready to run?${RESET}"
+      read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Run this requirement now? (y/n): " RUN_NOW
+      if [ "$RUN_NOW" != "y" ] && [ "$RUN_NOW" != "Y" ]; then
+        echo ""
+        print_info "You can run it later with:"
+        echo -e "  ${DIM}./ralph/ralph.sh $REQUIREMENT_FOLDER${RESET}"
+        exit 0
+      fi
+      echo ""
+      echo -e "${BOLD}Auto-continue mode?${RESET}"
+      echo -e "${DIM}Skip confirmation prompts between iterations (or use --yes flag)${RESET}"
+      read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Auto-continue? (y/n, default: n): " AUTO_CHOICE
+      if [ "$AUTO_CHOICE" = "y" ] || [ "$AUTO_CHOICE" = "Y" ]; then
+        AUTO_CONTINUE=true
+      fi
+      ;;
+    2)
+      print_header "Run Existing Requirement"
+      echo -e "${BOLD}Available Requirements:${RESET}"
+      list_requirements
+      echo ""
+      read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Enter requirement folder name: " REQUIREMENT_FOLDER
+      if [ -z "$REQUIREMENT_FOLDER" ]; then
+        print_error "Requirement folder name required"
+        exit 1
+      fi
+      echo ""
+      echo -e "${BOLD}Auto-continue mode?${RESET}"
+      echo -e "${DIM}Skip confirmation prompts between iterations (or use --yes flag)${RESET}"
+      read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Auto-continue? (y/n, default: n): " AUTO_CHOICE
+      if [ "$AUTO_CHOICE" = "y" ] || [ "$AUTO_CHOICE" = "Y" ]; then
+        AUTO_CONTINUE=true
+      fi
+      REQ_DIR="$SCRIPT_DIR/reference/$REQUIREMENT_FOLDER"
+      ;;
+    q|Q)
+      echo ""
+      print_info "Goodbye!"
+      exit 0
+      ;;
+    *)
+      print_error "Invalid option"
+      exit 1
+      ;;
+  esac
+else
+  # Command-line arguments provided (already parsed above)
+  REQ_DIR="$SCRIPT_DIR/reference/$REQUIREMENT_FOLDER"
+fi
+
+# Validate requirement folder exists
+if [ ! -d "$REQ_DIR" ]; then
+  echo ""
+  print_error "Requirement folder not found: $REQ_DIR"
+  echo ""
+  echo -e "${BOLD}Available requirements:${RESET}"
+  list_requirements
+  exit 1
+fi
+
+# Set paths for this requirement
+PRD_FILE="$REQ_DIR/PRD.md"
+PRD_PROMPT_FILE="$REQ_DIR/PRD_PROMPT.md"
+PROMPT_FILE="$SCRIPT_DIR/PROMPT.md"
+PROGRESS_FILE="$REQ_DIR/progress.md"
+ARCHIVE_DIR="$REQ_DIR/archive"
+RUN_ID_FILE="$REQ_DIR/.run-id"
+
+# Validate PRD file exists
+if [ ! -f "$PRD_FILE" ]; then
+  echo ""
+  print_error "PRD.md not found in requirement folder"
+  echo -e "  ${DIM}$PRD_FILE${RESET}"
+  echo ""
+  print_info "Each requirement folder must contain a PRD.md file"
+  exit 1
+fi
+
+# Generate or load run ID
+if [ ! -f "$RUN_ID_FILE" ]; then
+  RUN_ID=$(date +%Y%m%d-%H%M%S)
+  echo "$RUN_ID" > "$RUN_ID_FILE"
+else
+  RUN_ID=$(cat "$RUN_ID_FILE")
+fi
+
+# Initialize progress file if it doesn't exist or is empty
+if [ ! -f "$PROGRESS_FILE" ] || [ ! -s "$PROGRESS_FILE" ]; then
+  echo "# Ralph Progress Log" > "$PROGRESS_FILE"
+  echo "" >> "$PROGRESS_FILE"
+  echo "**Run ID:** $RUN_ID" >> "$PROGRESS_FILE"
+  echo "**Started:** $(date)" >> "$PROGRESS_FILE"
+  echo "" >> "$PROGRESS_FILE"
+  echo "---" >> "$PROGRESS_FILE"
+  echo "" >> "$PROGRESS_FILE"
+fi
+
+print_header "Ralph Agent Loop"
+
+echo -e "${BOLD}Configuration:${RESET}"
+echo -e "  ${CYAN}${DOT}${RESET} Requirement:  ${BOLD}$REQUIREMENT_FOLDER${RESET}"
+echo -e "  ${CYAN}${DOT}${RESET} Mode: ${BOLD}$([ "$AUTO_CONTINUE" = true ] && echo "Auto-continue" || echo "Interactive")${RESET}"
+echo -e "  ${CYAN}${DOT}${RESET} Run ID: ${DIM}$RUN_ID${RESET}"
+echo ""
+echo -e "${DIM}Project root: $PROJECT_ROOT${RESET}"
+echo -e "${DIM}PRD: $PRD_FILE${RESET}"
+echo -e "${DIM}Progress: $PROGRESS_FILE${RESET}"
+echo ""
+
+# Infinite loop until completion
+ITERATION=1
+while true; do
+  echo ""
+  echo -e "${MAGENTA} ${RESET}  ${BOLD}${WHITE}Iteration $ITERATION${RESET}"
+  echo -e "${MAGENTA}══════════════════════════════════════════════════════════════${RESET}"
+  echo ""
+
+  # Prepare prompt with requirement-specific paths
+  # Paths are relative to PROJECT_ROOT where claude will run
+  REL_PRD_PATH="ralph/reference/$REQUIREMENT_FOLDER/PRD.md"
+  REL_PROGRESS_PATH="ralph/reference/$REQUIREMENT_FOLDER/progress.md"
+
+  PREPARED_PROMPT=$(cat "$PROMPT_FILE" | \
+    sed "s|{{PRD_PATH}}|$REL_PRD_PATH|g" | \
+    sed "s|{{PROGRESS_PATH}}|$REL_PROGRESS_PATH|g")
+
+  # Run claude from project root with the prepared prompt
+  cd "$PROJECT_ROOT"
+
+  print_step "Running Claude agent..."
+  echo ""
+  echo -e "${GRAY}────────────────────────────────────────────────────────────${RESET}"
+
+  # Run and display output in real-time
+  OUTPUT=$(echo "$PREPARED_PROMPT" | claude --dangerously-skip-permissions 2>&1 | tee /dev/tty) || true
+
+  echo -e "${GRAY}────────────────────────────────────────────────────────────${RESET}"
+  echo ""
+
+  # Check for completion signal
+  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+    echo ""
+    echo -e "${GREEN} ${RESET}  ${BOLD}${GREEN}${STAR} All tasks completed successfully! ${STAR}${RESET}"
+    echo -e "${GREEN}══════════════════════════════════════════════════════════════${RESET}"
+    echo ""
+    print_success "Completed at iteration $ITERATION"
+
+    # Archive the successful run
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    ARCHIVE_FOLDER="$ARCHIVE_DIR/completed-$TIMESTAMP"
+    mkdir -p "$ARCHIVE_FOLDER"
+
+    [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
+    [ -f "$PRD_PROMPT_FILE" ] && cp "$PRD_PROMPT_FILE" "$ARCHIVE_FOLDER/"
+    [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
+    [ -f "$PROMPT_FILE" ] && cp "$PROMPT_FILE" "$ARCHIVE_FOLDER/"
+
+    echo ""
+    print_info "Run archived to:"
+    echo -e "  ${DIM}$ARCHIVE_FOLDER${RESET}"
+
+    # Clean up run ID for next run
+    rm -f "$RUN_ID_FILE"
+
+    exit 0
+  fi
+
+  print_success "Iteration $ITERATION complete"
+
+  # Ask for confirmation before next iteration (unless auto-continue)
+  if [ "$AUTO_CONTINUE" = false ]; then
+    echo ""
+    echo -e "${BOLD}Continue to next iteration?${RESET}"
+    echo -e "${DIM}Press Enter to continue, 'q' to quit, 's' to skip confirmations${RESET}"
+    read -p "$(echo -e ${CYAN}${ARROW}${RESET}) " CONTINUE_CHOICE
+
+    case "$CONTINUE_CHOICE" in
+      q|Q)
+        echo ""
+        print_warning "Stopped by user at iteration $ITERATION"
+
+        # Archive the incomplete run
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        ARCHIVE_FOLDER="$ARCHIVE_DIR/stopped-$TIMESTAMP"
+        mkdir -p "$ARCHIVE_FOLDER"
+
+        [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
+        [ -f "$PRD_PROMPT_FILE" ] && cp "$PRD_PROMPT_FILE" "$ARCHIVE_FOLDER/"
+        [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
+        [ -f "$PROMPT_FILE" ] && cp "$PROMPT_FILE" "$ARCHIVE_FOLDER/"
+
+        echo ""
+        print_info "Run archived to:"
+        echo -e "  ${DIM}$ARCHIVE_FOLDER${RESET}"
+
+        rm -f "$RUN_ID_FILE"
+        exit 0
+        ;;
+      s|S)
+        AUTO_CONTINUE=true
+        print_info "Auto-continue enabled"
+        ;;
+      *)
+        # Continue (default)
+        ;;
+    esac
+  else
+    sleep 1
+  fi
+
+  ITERATION=$((ITERATION + 1))
+done
