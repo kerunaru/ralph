@@ -95,7 +95,7 @@ is_requirement_completed() {
 
 # Function to list available requirements
 list_requirements() {
-  local reqs=$(ls -1 "$REFERENCE_DIR" 2>/dev/null | grep -v "\.md$")
+  local reqs=$(ls -1 "$REFERENCE_DIR" 2>/dev/null | grep -v "\.md$" || true)
   if [ -z "$reqs" ]; then
     echo -e "  ${DIM}(none found)${RESET}"
   else
@@ -191,8 +191,12 @@ if [ $# -eq 0 ]; then
   print_header "Ralph Wizard ${STAR}"
 
   # Count requirements
-  WIZARD_REQS=$(ls -1 "$REFERENCE_DIR" 2>/dev/null | grep -v "\.md$")
-  WIZARD_TOTAL_COUNT=$(echo "$WIZARD_REQS" | grep -c . || echo "0")
+  WIZARD_REQS=$(ls -1 "$REFERENCE_DIR" 2>/dev/null | grep -v "\.md$" || true)
+  if [ -z "$WIZARD_REQS" ]; then
+    WIZARD_TOTAL_COUNT=0
+  else
+    WIZARD_TOTAL_COUNT=$(echo "$WIZARD_REQS" | grep -c .)
+  fi
   WIZARD_COMPLETED_COUNT=0
 
   if [ -n "$WIZARD_REQS" ]; then
