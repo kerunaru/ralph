@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ralph is an iterative AI agent workflow system designed to implement features and requirements with automated progress tracking. It uses Claude to execute Product Requirements Documents (PRDs) one task at a time, creating focused git commits and maintaining detailed progress logs.
 
+Ralph is designed to be used as a **git submodule**, keeping the tool separate from project-specific requirements. The `ralph/` directory contains the reusable tool, while `ralph-reference/` in your project root stores project-specific PRDs and progress logs.
+
 ## Key Architecture Concepts
 
 ### One-Task-Per-Iteration Design
@@ -27,11 +29,15 @@ This design enables:
 ### Directory Structure
 
 ```
-ralph/
-├── ralph.sh              # Main orchestration script
-├── PROMPT.md             # Shared agent instructions template
-└── reference/            # Individual requirement folders
-    ├── 000-sample.md     # PRD structure reference
+project-root/
+├── ralph/                    # Git submodule containing Ralph tool
+│   ├── ralph.sh              # Main orchestration script
+│   ├── PROMPT.md             # Shared agent instructions template
+│   ├── CLAUDE.md             # This file
+│   ├── README.md             # Documentation
+│   └── templates/            # Template files
+│       └── 000-sample.md     # PRD structure reference
+└── ralph-reference/          # Project-specific requirements (NOT in submodule)
     └── YYYYMMDD-HHMM-feature-name/
         ├── idea.md           # Initial concept (optional)
         ├── PRD_PROMPT.md     # Instructions for generating PRD
@@ -85,14 +91,14 @@ ralph/
 
 ```bash
 # Wizard mode (recommended) - interactive menu
-./ralph.sh
+./ralph/ralph.sh
 
 # Run existing requirement (interactive mode)
-./ralph.sh YYYYMMDD-HHMM-feature-name
+./ralph/ralph.sh YYYYMMDD-HHMM-feature-name
 
 # Run with auto-continue (no confirmation prompts)
-./ralph.sh YYYYMMDD-HHMM-feature-name --yes
-./ralph.sh YYYYMMDD-HHMM-feature-name -y
+./ralph/ralph.sh YYYYMMDD-HHMM-feature-name --yes
+./ralph/ralph.sh YYYYMMDD-HHMM-feature-name -y
 ```
 
 ### Execution Modes
@@ -108,7 +114,7 @@ ralph/
 
 ### Creating Requirements
 
-The wizard (`./ralph.sh` with no arguments) automates:
+The wizard (`./ralph/ralph.sh` with no arguments) automates:
 1. Requirement name input (auto-prefixed with date/time)
 2. Multi-line idea description (Ctrl+D to finish)
 3. Auto-generation of folder structure, idea.md, PRD_PROMPT.md
@@ -127,7 +133,7 @@ Examples:
 
 ### When Acting as the Ralph Agent
 
-If you are invoked BY ralph.sh (you'll see `{{PRD_PATH}}` or `{{PROGRESS_PATH}}` in the prompt):
+If you are invoked BY ralph.sh (you'll see `{{PRD_PATH}}` or `{{PROGRESS_PATH}}` in the prompt, paths will reference `ralph-reference/` folder):
 
 1. **Read PRD and progress first** - Check "Codebase Patterns" section in progress.md
 2. **Pick ONLY the first unchecked [ ] task** - Never skip ahead
@@ -175,7 +181,20 @@ Append dated entries for each completed task:
 
 This repository contains Ralph itself - it's a meta-tool for managing AI-driven development workflows. When working on Ralph:
 
+- Ralph is designed to be used as a **git submodule** in client projects
+- The `ralph/` directory contains the tool itself (submodule)
+- The `ralph-reference/` directory in the project root stores project-specific requirements
 - The target codebase is whatever project Ralph is being run FROM
 - Ralph operates from the project root via `cd "$PROJECT_ROOT"`
-- Paths in PROMPT.md are relative to project root, not ralph/
+- Paths in PROMPT.md are relative to project root (e.g., `ralph-reference/YYYYMMDD-HHMM-feature/PRD.md`)
 - Ralph itself has no build/test commands (it's a bash script)
+
+### Adding Ralph to a New Project
+
+```bash
+# Add Ralph as a submodule
+git submodule add <ralph-repo-url> ralph
+
+# Initialize the ralph-reference directory (automatically created when you create your first requirement)
+./ralph/ralph.sh
+```

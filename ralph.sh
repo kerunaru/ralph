@@ -9,6 +9,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REFERENCE_DIR="$PROJECT_ROOT/ralph-reference"
 
 # Parse command-line flags
 AUTO_CONTINUE=false
@@ -82,7 +83,7 @@ print_step() {
 # Function to check if requirement is completed
 is_requirement_completed() {
   local req_folder="$1"
-  local archive_dir="$SCRIPT_DIR/reference/$req_folder/archive"
+  local archive_dir="$REFERENCE_DIR/$req_folder/archive"
 
   # Check if there's a completed archive
   if [ -d "$archive_dir" ]; then
@@ -94,7 +95,7 @@ is_requirement_completed() {
 
 # Function to list available requirements
 list_requirements() {
-  local reqs=$(ls -1 "$SCRIPT_DIR/reference" 2>/dev/null | grep -v "\.md$")
+  local reqs=$(ls -1 "$REFERENCE_DIR" 2>/dev/null | grep -v "\.md$")
   if [ -z "$reqs" ]; then
     echo -e "  ${DIM}(none found)${RESET}"
   else
@@ -124,7 +125,7 @@ create_new_requirement() {
   # Generate folder name with date and time prefix
   DATE_PREFIX=$(date +%Y%m%d-%H%M)
   REQUIREMENT_FOLDER="$DATE_PREFIX-$REQ_NAME"
-  REQ_DIR="$SCRIPT_DIR/reference/$REQUIREMENT_FOLDER"
+  REQ_DIR="$REFERENCE_DIR/$REQUIREMENT_FOLDER"
 
   # Check if folder already exists
   if [ -d "$REQ_DIR" ]; then
@@ -152,6 +153,7 @@ create_new_requirement() {
   echo ""
 
   # Create requirement folder
+  mkdir -p "$REFERENCE_DIR"  # Ensure ralph-reference directory exists
   mkdir -p "$REQ_DIR"
   print_step "Setting up requirement structure..."
 
@@ -163,7 +165,7 @@ create_new_requirement() {
   cat > "$REQ_DIR/PRD_PROMPT.md" << 'EOF'
 Write a PRD document called `PRD.md` in this directory based on `idea.md`.
 
-Think about how to implement the feature step-by-step. Break it down into smaller, granular tasks as you need. Follow the `../000-sample.md` as structure guide.
+Think about how to implement the feature step-by-step. Break it down into smaller, granular tasks as you need. Follow the `ralph/templates/000-sample.md` as structure guide.
 
 IMPORTANT:
 - Set Status to "Not Started"
@@ -182,7 +184,7 @@ EOF
   print_step "Generating PRD.md with Claude..."
   cd "$REQ_DIR"
 
-  GENERATE_PROMPT="Read idea.md and PRD_PROMPT.md in the current directory, then generate PRD.md following the instructions in PRD_PROMPT.md. Use ../000-sample.md as a structure reference."
+  GENERATE_PROMPT="Read idea.md and PRD_PROMPT.md in the current directory, then generate PRD.md following the instructions in PRD_PROMPT.md. Use ralph/templates/000-sample.md as a structure reference."
 
   echo "$GENERATE_PROMPT" | claude --dangerously-skip-permissions > /dev/null
 
@@ -207,7 +209,7 @@ if [ $# -eq 0 ]; then
   print_header "Ralph Wizard ${STAR}"
 
   # Count requirements
-  WIZARD_REQS=$(ls -1 "$SCRIPT_DIR/reference" 2>/dev/null | grep -v "\.md$")
+  WIZARD_REQS=$(ls -1 "$REFERENCE_DIR" 2>/dev/null | grep -v "\.md$")
   WIZARD_TOTAL_COUNT=$(echo "$WIZARD_REQS" | grep -c . || echo "0")
   WIZARD_COMPLETED_COUNT=0
 
@@ -268,7 +270,7 @@ if [ $# -eq 0 ]; then
       if [ "$AUTO_CHOICE" = "y" ] || [ "$AUTO_CHOICE" = "Y" ]; then
         AUTO_CONTINUE=true
       fi
-      REQ_DIR="$SCRIPT_DIR/reference/$REQUIREMENT_FOLDER"
+      REQ_DIR="$REFERENCE_DIR/$REQUIREMENT_FOLDER"
       ;;
     q|Q)
       echo ""
@@ -282,7 +284,7 @@ if [ $# -eq 0 ]; then
   esac
 else
   # Command-line arguments provided (already parsed above)
-  REQ_DIR="$SCRIPT_DIR/reference/$REQUIREMENT_FOLDER"
+  REQ_DIR="$REFERENCE_DIR/$REQUIREMENT_FOLDER"
 fi
 
 # Validate requirement folder exists
@@ -354,8 +356,8 @@ while true; do
 
   # Prepare prompt with requirement-specific paths
   # Paths are relative to PROJECT_ROOT where claude will run
-  REL_PRD_PATH="ralph/reference/$REQUIREMENT_FOLDER/PRD.md"
-  REL_PROGRESS_PATH="ralph/reference/$REQUIREMENT_FOLDER/progress.md"
+  REL_PRD_PATH="ralph-reference/$REQUIREMENT_FOLDER/PRD.md"
+  REL_PROGRESS_PATH="ralph-reference/$REQUIREMENT_FOLDER/progress.md"
 
   PREPARED_PROMPT=$(cat "$PROMPT_FILE" | \
     sed "s|{{PRD_PATH}}|$REL_PRD_PATH|g" | \

@@ -2,26 +2,46 @@
 
 Ralph is an iterative AI agent system for implementing features and requirements with automated progress tracking.
 
+**Ralph is designed to be used as a git submodule**, keeping the tool separate from your project-specific requirements.
+
 ## Directory Structure
 
 ```
-ralph/
-├── ralph.sh              # Main execution script
-├── PROMPT.md             # Shared prompt template for all requirements
-├── README.md             # This file
-└── reference/            # Individual requirement folders
-    ├── 000-sample.md     # Example PRD structure reference
+project-root/
+├── ralph/                    # Git submodule (Ralph tool)
+│   ├── ralph.sh              # Main execution script
+│   ├── PROMPT.md             # Shared prompt template
+│   ├── CLAUDE.md             # Developer guidance
+│   ├── README.md             # This file
+│   └── templates/            # Template files
+│       └── 000-sample.md     # Example PRD structure
+└── ralph-reference/          # Project-specific requirements (NOT in submodule)
     ├── 20260114-kickoff/
     │   ├── idea.md           # Initial rough idea/concept
     │   ├── PRD_PROMPT.md     # Prompt used to generate PRD.md
-    │   ├── PRD.md            # Product Requirements Document (generated)
+    │   ├── PRD.md            # Product Requirements Document
     │   ├── progress.md       # Progress log with learnings (auto-generated)
     │   ├── .run-id           # Current run identifier (auto-generated)
     │   └── archive/          # Completed/incomplete run archives
     └── 20260116-feat-palette-selector-to-footer/
-        ├── PRD_PROMPT.md     # Each requirement has its own prompt
-        └── PRD.md            # And its own PRD
+        ├── PRD_PROMPT.md
+        └── PRD.md
 ```
+
+## Getting Started
+
+### Adding Ralph to Your Project
+
+```bash
+# From your project root
+git submodule add <ralph-repo-url> ralph
+git submodule update --init
+
+# Run the wizard to create your first requirement
+./ralph/ralph.sh
+```
+
+The `ralph-reference/` directory will be automatically created in your project root when you create your first requirement.
 
 ## Usage
 
@@ -83,23 +103,23 @@ You can also run Ralph directly with command-line arguments:
 
 If you prefer manual setup instead of the wizard:
 
-1. Create a new folder in `ralph/reference/` with a descriptive name:
+1. Create a new folder in `ralph-reference/` with a descriptive name:
    ```bash
-   mkdir -p ralph/reference/YYYYMMDD-HHMM-feature-name
+   mkdir -p ralph-reference/YYYYMMDD-HHMM-feature-name
    ```
 
 2. Create an `idea.md` with your initial concept:
    ```bash
-   echo "# Feature Name\n\nBrief description of what you want to build..." > ralph/reference/YYYYMMDD-HHMM-feature-name/idea.md
+   echo "# Feature Name\n\nBrief description of what you want to build..." > ralph-reference/YYYYMMDD-HHMM-feature-name/idea.md
    ```
 
 3. Create a `PRD_PROMPT.md` with instructions for generating the PRD:
    ```bash
-   cat > ralph/reference/YYYYMMDD-HHMM-feature-name/PRD_PROMPT.md << 'EOF'
+   cat > ralph-reference/YYYYMMDD-HHMM-feature-name/PRD_PROMPT.md << 'EOF'
    Write a PRD document called `PRD.md` in this directory based on `idea.md`.
 
    Think about how to implement the feature step-by-step. Break it down into smaller tasks.
-   Follow the `../000-sample.md` as structure reference.
+   Follow the `ralph/templates/000-sample.md` as structure reference.
    EOF
    ```
 
