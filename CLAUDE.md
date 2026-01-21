@@ -60,7 +60,9 @@ project-root/
 - `{{PRD_PATH}}` - Path to requirement's PRD.md
 - `{{PROGRESS_PATH}}` - Path to requirement's progress.md
 
-**PRD.md**: Task checklist with [ ] checkboxes. Agent marks tasks [x] as completed.
+**PRD.md**: Product Requirements Document with two key sections:
+- **Progress Summary**: Implementation steps with [ ] checkboxes that the agent tracks and marks [x] as completed
+- **Acceptance Criteria**: Validation requirements without checkboxes (informational only, not tracked)
 
 **PRD_PROMPT.md** (in templates/): Standard instructions for generating PRD.md files from idea.md.
 
@@ -75,15 +77,15 @@ project-root/
 
 **Phase 2 - Implementation**: Ralph runs Claude iteratively:
 1. Read PRD and progress
-2. Pick first unchecked [ ] task
+2. Pick first unchecked [ ] task from Progress Summary section
 3. Implement ONLY that task
 4. Run tests/typechecks if applicable
 5. Commit with format: `feat: [ID] - [Title]`
-6. Mark ONLY that task as [x] in PRD
+6. Mark ONLY that task as [x] in Progress Summary
 7. Append learnings to progress.md
 8. Stop (Ralph calls again for next task)
 
-**Phase 3 - Completion**: When ALL tasks marked [x], agent outputs `<promise>COMPLETE</promise>` and Ralph archives the run.
+**Phase 3 - Completion**: When ALL implementation tasks in the Progress Summary section are marked [x], agent outputs `<promise>COMPLETE</promise>` and Ralph archives the run.
 
 ## Commands
 
@@ -136,14 +138,16 @@ Examples:
 If you are invoked BY ralph.sh (you'll see `{{PRD_PATH}}` or `{{PROGRESS_PATH}}` in the prompt, paths will reference `ralph-reference/` folder):
 
 1. **Read PRD and progress first** - Check "Codebase Patterns" section in progress.md
-2. **Pick ONLY the first unchecked [ ] task** - Never skip ahead
+2. **Pick ONLY the first unchecked [ ] task from Progress Summary** - Never skip ahead
 3. **Implement ONLY that ONE task** - No batching, no combining
 4. **Test if applicable** - Run relevant tests/typechecks
 5. **Commit with task ID** - Format: `feat: [ID] - [Title]`
-6. **Mark ONLY that ONE task as [x]** - Update PRD.md
+6. **Mark ONLY that ONE task as [x] in Progress Summary** - Update PRD.md
 7. **Document learnings** - Append to progress.md with date and task ID
-8. **Check completion** - If ALL tasks now [x], output `<promise>COMPLETE</promise>`
+8. **Check completion** - If ALL Progress Summary tasks now [x], output `<promise>COMPLETE</promise>`
 9. **Stop immediately** - Ralph will call you again for next task
+
+Note: Acceptance Criteria items do not have checkboxes and are not tracked for completion.
 
 ### When Modifying Ralph Itself
 

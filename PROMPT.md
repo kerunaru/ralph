@@ -44,15 +44,20 @@ Add reusable patterns to the TOP of progress.md:
 
 **Check the PRD after completing your ONE task:**
 
-- If ALL checkboxes [ ] are now [x]: Output `<promise>COMPLETE</promise>` to signal completion
-- If ANY checkboxes [ ] remain unchecked: End normally (Ralph will iterate again)
+Look at the "Progress Summary" section at the top of the PRD - this contains the implementation steps with checkboxes.
 
-**DO NOT output `<promise>COMPLETE</promise>` unless EVERY SINGLE task in the PRD is marked [x]**
+- If ALL implementation step checkboxes [ ] in the Progress Summary are now [x]: Output `<promise>COMPLETE</promise>` to signal completion
+- If ANY implementation step checkboxes [ ] in the Progress Summary remain unchecked: End normally (Ralph will iterate again)
+
+**DO NOT output `<promise>COMPLETE</promise>` unless EVERY SINGLE implementation step in the Progress Summary section is marked [x]**
+
+Note: Acceptance Criteria items do not have checkboxes and should not be tracked for completion.
 
 ## Workflow Summary
 
-1. Find first unchecked [ ] task in PRD
+1. Find first unchecked [ ] task in the Progress Summary section of the PRD
 2. Implement ONLY that task
-3. Mark ONLY that task as [x]
-4. Update progress.md
-5. Stop (Ralph will call you again for next task)
+3. Mark ONLY that task as [x] in the Progress Summary
+4. Update progress.md with learnings
+5. Check if ALL Progress Summary tasks are now [x] - if yes, output `<promise>COMPLETE</promise>`
+6. Stop (Ralph will call you again for next task if not complete)

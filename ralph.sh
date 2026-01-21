@@ -80,16 +80,45 @@ print_step() {
   echo -e "${CYAN}${ARROW}${RESET} ${BOLD}$1${RESET}"
 }
 
+# Function to get current task from PRD
+get_current_task() {
+  local prd_file="$1"
+  # Find first unchecked task in Progress Summary section
+  awk '/^## Progress Summary/,/^## [^P]/ {
+    if (/^- \[ \]/) {
+      sub(/^- \[ \] /, "")
+      print
+      exit
+    }
+  }' "$prd_file"
+}
+
+# Function to count tasks in PRD
+count_tasks() {
+  local prd_file="$1"
+  local total=0
+  local completed=0
+
+  # Count tasks in Progress Summary section
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^-\ \[x\] ]]; then
+      ((completed++))
+      ((total++))
+    elif [[ "$line" =~ ^-\ \[\ \] ]]; then
+      ((total++))
+    fi
+  done < <(awk '/^## Progress Summary/,/^## [^P]/' "$prd_file")
+
+  echo "$completed $total"
+}
+
 # Function to check if requirement is completed
 is_requirement_completed() {
   local req_folder="$1"
-  local archive_dir="$REFERENCE_DIR/$req_folder/archive"
+  local completed_file="$REFERENCE_DIR/$req_folder/completed"
 
-  # Check if there's a completed archive
-  if [ -d "$archive_dir" ]; then
-    local completed_count=$(ls -1 "$archive_dir" 2>/dev/null | grep -c "^completed-" || echo "0")
-    [ "$completed_count" -gt 0 ] && return 0
-  fi
+  # Check if completed marker file exists
+  [ -f "$completed_file" ] && return 0
   return 1
 }
 
@@ -166,7 +195,7 @@ create_new_requirement() {
   print_step "Generating PRD.md with Claude..."
   cd "$REQ_DIR"
 
-  GENERATE_PROMPT="Read idea.md in the current directory and ralph/templates/PRD_PROMPT.md, then generate PRD.md following the instructions in ralph/templates/PRD_PROMPT.md. Use ralph/templates/000-sample.md as a structure reference."
+  GENERATE_PROMPT="Read idea.md in the current directory and ../../ralph/templates/PRD_PROMPT.md, then generate PRD.md following the instructions in ../../ralph/templates/PRD_PROMPT.md. Use ../../ralph/templates/000-sample.md as a structure reference. Generate PRD.md directly in the current directory."
 
   echo "$GENERATE_PROMPT" | claude --dangerously-skip-permissions > /dev/null
 
@@ -295,7 +324,7 @@ fi
 PRD_FILE="$REQ_DIR/PRD.md"
 PROMPT_FILE="$SCRIPT_DIR/PROMPT.md"
 PROGRESS_FILE="$REQ_DIR/progress.md"
-ARCHIVE_DIR="$REQ_DIR/archive"
+COMPLETED_FILE="$REQ_DIR/completed"
 RUN_ID_FILE="$REQ_DIR/.run-id"
 
 # Validate PRD file exists
@@ -347,6 +376,18 @@ while true; do
   echo -e "${MAGENTA}══════════════════════════════════════════════════════════════${RESET}"
   echo ""
 
+  # Get current task and count
+  CURRENT_TASK=$(get_current_task "$PRD_FILE")
+  read COMPLETED_COUNT TOTAL_COUNT <<< $(count_tasks "$PRD_FILE")
+  REMAINING_COUNT=$((TOTAL_COUNT - COMPLETED_COUNT))
+
+  # Display progress
+  if [ -n "$CURRENT_TASK" ]; then
+    echo -e "${BOLD}Current Step:${RESET} ${CYAN}$CURRENT_TASK${RESET}"
+  fi
+  echo -e "${BOLD}Progress:${RESET} ${GREEN}$COMPLETED_COUNT${RESET}/${CYAN}$TOTAL_COUNT${RESET} completed ${DIM}($REMAINING_COUNT remaining)${RESET}"
+  echo ""
+
   # Prepare prompt with requirement-specific paths
   # Paths are relative to PROJECT_ROOT where claude will run
   REL_PRD_PATH="ralph-reference/$REQUIREMENT_FOLDER/PRD.md"
@@ -378,44 +419,30 @@ while true; do
     print_error "Claude Code execution failed with exit code $CLAUDE_EXIT_CODE"
     echo ""
     print_warning "Stopping execution at iteration $ITERATION"
-
-    # Archive the failed run
-    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-    ARCHIVE_FOLDER="$ARCHIVE_DIR/failed-$TIMESTAMP"
-    mkdir -p "$ARCHIVE_FOLDER"
-
-    [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
-    [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
-    [ -f "$PROMPT_FILE" ] && cp "$PROMPT_FILE" "$ARCHIVE_FOLDER/"
-
     echo ""
-    print_info "Run archived to:"
-    echo -e "  ${DIM}$ARCHIVE_FOLDER${RESET}"
+    print_info "Check PRD and progress files for current state:"
+    echo -e "  ${DIM}PRD: $PRD_FILE${RESET}"
+    echo -e "  ${DIM}Progress: $PROGRESS_FILE${RESET}"
 
     rm -f "$RUN_ID_FILE"
     exit 1
   fi
 
-  # Check for completion signal
-  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+  # Check for completion signal (must be on a line by itself)
+  if echo "$OUTPUT" | grep -Fxq "<promise>COMPLETE</promise>"; then
     echo ""
     echo -e "${GREEN} ${RESET}  ${BOLD}${GREEN}${STAR} All tasks completed successfully! ${STAR}${RESET}"
     echo -e "${GREEN}══════════════════════════════════════════════════════════════${RESET}"
     echo ""
     print_success "Completed at iteration $ITERATION"
 
-    # Archive the successful run
+    # Mark requirement as completed
     TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-    ARCHIVE_FOLDER="$ARCHIVE_DIR/completed-$TIMESTAMP"
-    mkdir -p "$ARCHIVE_FOLDER"
-
-    [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
-    [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
-    [ -f "$PROMPT_FILE" ] && cp "$PROMPT_FILE" "$ARCHIVE_FOLDER/"
+    echo "Completed: $TIMESTAMP" > "$COMPLETED_FILE"
 
     echo ""
-    print_info "Run archived to:"
-    echo -e "  ${DIM}$ARCHIVE_FOLDER${RESET}"
+    print_success "Requirement marked as completed"
+    echo -e "  ${DIM}$COMPLETED_FILE${RESET}"
 
     # Clean up run ID for next run
     rm -f "$RUN_ID_FILE"
@@ -436,21 +463,10 @@ while true; do
       q|Q)
         echo ""
         print_warning "Stopped by user at iteration $ITERATION"
-
-        # Archive the incomplete run
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        ARCHIVE_FOLDER="$ARCHIVE_DIR/stopped-$TIMESTAMP"
-        mkdir -p "$ARCHIVE_FOLDER"
-
-        [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
-        [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
-        [ -f "$PROMPT_FILE" ] && cp "$PROMPT_FILE" "$ARCHIVE_FOLDER/"
-
         echo ""
-        print_info "Run archived to:"
-        echo -e "  ${DIM}$ARCHIVE_FOLDER${RESET}"
+        print_info "Resume later by running:"
+        echo -e "  ${DIM}./ralph/ralph.sh $REQUIREMENT_FOLDER${RESET}"
 
-        rm -f "$RUN_ID_FILE"
         exit 0
         ;;
       s|S)

@@ -154,29 +154,29 @@ Modify the PostEditor to work better in the new layout:
 
 ### Functional Requirements
 
-- [ ] Version navigation works correctly (previous/next buttons)
-- [ ] Version selection dropdown shows all versions
-- [ ] Context information is displayed compactly above editor
-- [ ] User prompt is shown at bottom as read-only reference
-- [ ] All existing post editing functionality is preserved
-- [ ] Version switching updates editor content correctly
+- Version navigation works correctly (previous/next buttons)
+- Version selection dropdown shows all versions
+- Context information is displayed compactly above editor
+- User prompt is shown at bottom as read-only reference
+- All existing post editing functionality is preserved
+- Version switching updates editor content correctly
 
 ### UI/UX Requirements
 
-- [ ] Layout is more compact and user-friendly
-- [ ] No sidebar on the right side of the editor
-- [ ] Info bar displays version and context information in one row
-- [ ] Editor takes full width of the available space
-- [ ] User prompt display is collapsible/expandable
-- [ ] Responsive design works on mobile devices
+- Layout is more compact and user-friendly
+- No sidebar on the right side of the editor
+- Info bar displays version and context information in one row
+- Editor takes full width of the available space
+- User prompt display is collapsible/expandable
+- Responsive design works on mobile devices
 
 ### Technical Requirements
 
-- [ ] No breaking changes to existing API endpoints
-- [ ] Component reusability maintained
-- [ ] TypeScript types properly defined
-- [ ] Existing tests pass or are updated accordingly
-- [ ] Performance is not degraded
+- No breaking changes to existing API endpoints
+- Component reusability maintained
+- TypeScript types properly defined
+- Existing tests pass or are updated accordingly
+- Performance is not degraded
 
 ## Files Involved
 

@@ -4,7 +4,8 @@ Think about how to implement the feature step-by-step. Break it down into smalle
 
 IMPORTANT:
 - Set Status to "Not Started"
-- All checkboxes must be unchecked: [ ] not [x]
+- Implementation steps in the Progress Summary section MUST have checkboxes: [ ] not [x]
+- Acceptance Criteria section items should NOT have checkboxes (just bullet points)
 - This is a planning document for future implementation, not a completed task list
 - Break down the implementation into SMALL, ATOMIC tasks
 - Each task should be completable in one focused session
