@@ -363,11 +363,38 @@ while true; do
   echo ""
   echo -e "${GRAY}────────────────────────────────────────────────────────────${RESET}"
 
-  # Run and display output in real-time
-  OUTPUT=$(echo "$PREPARED_PROMPT" | claude --dangerously-skip-permissions 2>&1 | tee /dev/tty) || true
+  # Run and capture exit code
+  set +e  # Temporarily disable exit on error
+  OUTPUT=$(echo "$PREPARED_PROMPT" | claude --dangerously-skip-permissions 2>&1 | tee /dev/tty)
+  CLAUDE_EXIT_CODE=$?
+  set -e  # Re-enable exit on error
 
   echo -e "${GRAY}────────────────────────────────────────────────────────────${RESET}"
   echo ""
+
+  # Check if Claude command failed
+  if [ $CLAUDE_EXIT_CODE -ne 0 ]; then
+    echo ""
+    print_error "Claude Code execution failed with exit code $CLAUDE_EXIT_CODE"
+    echo ""
+    print_warning "Stopping execution at iteration $ITERATION"
+
+    # Archive the failed run
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    ARCHIVE_FOLDER="$ARCHIVE_DIR/failed-$TIMESTAMP"
+    mkdir -p "$ARCHIVE_FOLDER"
+
+    [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
+    [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
+    [ -f "$PROMPT_FILE" ] && cp "$PROMPT_FILE" "$ARCHIVE_FOLDER/"
+
+    echo ""
+    print_info "Run archived to:"
+    echo -e "  ${DIM}$ARCHIVE_FOLDER${RESET}"
+
+    rm -f "$RUN_ID_FILE"
+    exit 1
+  fi
 
   # Check for completion signal
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
