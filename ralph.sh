@@ -122,18 +122,28 @@ is_requirement_completed() {
   return 1
 }
 
-# Function to list available requirements
-list_requirements() {
+# Function to list incomplete requirements only
+list_incomplete_requirements() {
   local reqs=$(ls -1 "$REFERENCE_DIR" 2>/dev/null | grep -v "\.md$" || true)
+
   if [ -z "$reqs" ]; then
     echo -e "  ${DIM}(none found)${RESET}"
+    return
+  fi
+
+  local incomplete_list=""
+  while read req; do
+    if ! is_requirement_completed "$req"; then
+      incomplete_list="${incomplete_list}${req}\n"
+    fi
+  done <<< "$reqs"
+
+  # Show incomplete requirements or message
+  if [ -z "$incomplete_list" ]; then
+    echo -e "  ${DIM}(all requirements completed)${RESET}"
   else
-    echo "$reqs" | while read req; do
-      if is_requirement_completed "$req"; then
-        echo -e "  ${GREEN}${CHECK}${RESET} ${BOLD}$req${RESET} ${DIM}(completed)${RESET}"
-      else
-        echo -e "  ${CYAN}${DOT}${RESET} ${BOLD}$req${RESET}"
-      fi
+    echo -e "$incomplete_list" | grep -v "^$" | while read req; do
+      echo -e "  ${CYAN}${DOT}${RESET} ${BOLD}$req${RESET}"
     done
   fi
 }
@@ -219,32 +229,36 @@ create_new_requirement() {
 if [ $# -eq 0 ]; then
   print_header "Ralph Wizard ${STAR}"
 
-  # Count requirements
+  # Count incomplete requirements only
   WIZARD_REQS=$(ls -1 "$REFERENCE_DIR" 2>/dev/null | grep -v "\.md$" || true)
-  if [ -z "$WIZARD_REQS" ]; then
-    WIZARD_TOTAL_COUNT=0
-  else
-    WIZARD_TOTAL_COUNT=$(echo "$WIZARD_REQS" | grep -c .)
-  fi
-  WIZARD_COMPLETED_COUNT=0
+  WIZARD_INCOMPLETE_COUNT=0
 
   if [ -n "$WIZARD_REQS" ]; then
     while read req; do
-      if is_requirement_completed "$req"; then
-        WIZARD_COMPLETED_COUNT=$((WIZARD_COMPLETED_COUNT + 1))
+      if ! is_requirement_completed "$req"; then
+        WIZARD_INCOMPLETE_COUNT=$((WIZARD_INCOMPLETE_COUNT + 1))
       fi
     done <<< "$WIZARD_REQS"
   fi
 
   # If no requirements exist, automatically create the first one
-  if [ "$WIZARD_TOTAL_COUNT" -eq 0 ]; then
+  if [ -z "$WIZARD_REQS" ]; then
     echo -e "${BOLD}No requirements found!${RESET}"
     echo -e "${DIM}Let's create your first requirement...${RESET}"
     echo ""
     OPTION="1"
+  # If all requirements are completed, prompt to create new or quit
+  elif [ "$WIZARD_INCOMPLETE_COUNT" -eq 0 ]; then
+    echo -e "${GREEN}${CHECK}${RESET} ${BOLD}All requirements completed!${RESET}"
+    echo ""
+    echo -e "${BOLD}What would you like to do?${RESET}"
+    echo -e "  ${CYAN}1${RESET}) ${BOLD}Create new requirement${RESET}"
+    echo -e "  ${CYAN}q${RESET}) ${DIM}Quit${RESET}"
+    echo ""
+    read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Select option: " OPTION
   else
-    echo -e "${BOLD}Available Requirements:${RESET} ${DIM}($WIZARD_COMPLETED_COUNT of $WIZARD_TOTAL_COUNT completed)${RESET}"
-    list_requirements
+    echo -e "${BOLD}Incomplete Requirements:${RESET} ${DIM}($WIZARD_INCOMPLETE_COUNT)${RESET}"
+    list_incomplete_requirements
     echo ""
 
     echo -e "${BOLD}What would you like to do?${RESET}"
@@ -278,8 +292,8 @@ if [ $# -eq 0 ]; then
       ;;
     2)
       print_header "Run Existing Requirement"
-      echo -e "${BOLD}Available Requirements:${RESET}"
-      list_requirements
+      echo -e "${BOLD}Incomplete Requirements:${RESET}"
+      list_incomplete_requirements
       echo ""
       read -p "$(echo -e ${CYAN}${ARROW}${RESET}) Enter requirement folder name: " REQUIREMENT_FOLDER
       if [ -z "$REQUIREMENT_FOLDER" ]; then
@@ -315,9 +329,22 @@ if [ ! -d "$REQ_DIR" ]; then
   echo ""
   print_error "Requirement folder not found: $REQ_DIR"
   echo ""
-  echo -e "${BOLD}Available requirements:${RESET}"
-  list_requirements
+  echo -e "${BOLD}Incomplete requirements:${RESET}"
+  list_incomplete_requirements
   exit 1
+fi
+
+# Check if requirement is already completed
+if is_requirement_completed "$REQUIREMENT_FOLDER"; then
+  echo ""
+  print_success "This requirement is already completed!"
+  echo ""
+  print_info "Completed requirements are stored in:"
+  echo -e "  ${DIM}$REQ_DIR${RESET}"
+  echo ""
+  print_info "To work on incomplete requirements, run:"
+  echo -e "  ${DIM}./ralph/ralph.sh${RESET}"
+  exit 0
 fi
 
 # Set paths for this requirement
@@ -443,6 +470,30 @@ while true; do
     echo ""
     print_success "Requirement marked as completed"
     echo -e "  ${DIM}$COMPLETED_FILE${RESET}"
+
+    # Commit the completed file
+    echo ""
+    print_step "Committing completed marker to git..."
+
+    set +e  # Temporarily disable exit on error
+    git add "$COMPLETED_FILE" 2>&1
+    GIT_ADD_EXIT=$?
+
+    if [ $GIT_ADD_EXIT -eq 0 ]; then
+      git commit -m "feat: $REQUIREMENT_FOLDER - Mark requirement as completed
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>" 2>&1
+      GIT_COMMIT_EXIT=$?
+
+      if [ $GIT_COMMIT_EXIT -eq 0 ]; then
+        print_success "Completed marker committed to git"
+      else
+        print_warning "Failed to commit completed marker (exit code: $GIT_COMMIT_EXIT)"
+      fi
+    else
+      print_warning "Failed to stage completed marker (exit code: $GIT_ADD_EXIT)"
+    fi
+    set -e  # Re-enable exit on error
 
     # Clean up run ID for next run
     rm -f "$RUN_ID_FILE"
